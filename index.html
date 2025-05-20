@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>手術データ一覧</title>
+    <style>
+        body { font-family: sans-serif; }
+        .header-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .header-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin-right: 2cm;
+        }
+        #refreshBtn {
+            padding: 6px 20px;
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 1em;
+        }
+        #lastUpdate {
+            font-size: 0.9em;
+            color: #666;
+            margin-left: 2em;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 0.95em;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 6px 9px;
+            text-align: center;
+        }
+        th {
+            background: #f4f4fa;
+            font-weight: bold;
+        }
+        tr:nth-child(even) { background: #f9f9f9; }
+        /* 日付区切り用: 青太線 */
+        .date-border-top td {
+            border-top: 3px solid #228be6 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="header-row">
+        <span class="header-title">手術データ一覧</span>
+        <button id="refreshBtn" onclick="manualUpdate()">手動更新</button>
+        <span id="lastUpdate"></span>
+    </div>
+    <table id="dataTable">
+        <thead>
+            <tr id="headerRow"></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+    <div style="margin-top:8px; color:#888; font-size:0.92em;">
+        ※自動更新間隔：30分ごと。手動更新ボタンで今すぐ最新情報を取得します。
+    </div>
+    <script>
+        const columns = [
+            '手術日','手術開始','手術終了','病棟','オーダ区分',
+            '患者氏名','患者性別','患者年齢','疾患名','術式',
+            '麻酔医','主治医','執刀医','助手','器械出し','外回り'
+        ];
+
+        function renderHeader() {
+            const headerRow = document.getElementById("headerRow");
+            headerRow.innerHTML = "";
+            columns.forEach(col => {
+                const th = document.createElement("th");
+                th.textContent = col;
+                headerRow.appendChild(th);
+            });
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById("tableBody");
+            tbody.innerHTML = "";
+            let prevDate = "";
+            data.forEach(row => {
+                const tr = document.createElement("tr");
+                // 日付が変わる行で青太線クラスを付与
+                if (row['手術日'] !== prevDate && prevDate !== "") {
+                    tr.className = "date-border-top";
+                }
+                columns.forEach(col => {
+                    const td = document.createElement("td");
+                    td.textContent = row[col] || "";
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+                prevDate = row['手術日'];
+            });
+        }
+
+        async function fetchData() {
+            const resp = await fetch("/api/records");
+            return await resp.json();
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const text = "最終表示: " +
+                now.getFullYear() + "-" +
+                ("0"+(now.getMonth()+1)).slice(-2) + "-" +
+                ("0"+now.getDate()).slice(-2) + " " +
+                ("0"+now.getHours()).slice(-2) + ":" +
+                ("0"+now.getMinutes()).slice(-2);
+            document.getElementById("lastUpdate").textContent = text;
+        }
+
+        async function manualUpdate() {
+            document.getElementById("refreshBtn").disabled = true;
+            document.getElementById("refreshBtn").textContent = "更新中…";
+            await fetch("/api/refresh", {method: "POST"});
+            await load();
+            document.getElementById("refreshBtn").disabled = false;
+            document.getElementById("refreshBtn").textContent = "手動更新";
+        }
+
+        async function load() {
+            renderHeader();
+            const data = await fetchData();
+            renderTable(data);
+            updateLastUpdateTime();
+        }
+
+        load();
+        setInterval(load, 1800000); // 30分ごとに自動更新
+    </script>
+</body>
+</html>
