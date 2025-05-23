@@ -36,15 +36,28 @@ def read_excel(file):
 def load_db():
     if not os.path.exists(DB_PATH):
         return pd.DataFrame(columns=COLUMNS)
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql('SELECT * FROM records', conn)
-    conn.close()
-    return df
+
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        df = pd.read_sql('SELECT * FROM records', conn)
+        return df
+    except Exception as e:
+        print(f'[DB] エラー: {e}')
+        return pd.DataFrame(columns=COLUMNS)
+    finally:
+        if conn:
+            conn.close()
 
 def save_db(df):
-    conn = sqlite3.connect(DB_PATH)
-    df.to_sql('records', conn, if_exists='replace', index=False)
-    conn.close()
+    # edited by Takashi Osako by 2025/05/23
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        df.to_sql('records', conn, if_exists='replace', index=False)
+    finally:
+        if conn:
+            conn.close()
 
 def update_all_from_folder():
     files = [os.path.join(WATCH_DIR, f) for f in os.listdir(WATCH_DIR) if f.lower().endswith(('.xls','.xlsx'))]
@@ -81,7 +94,7 @@ def start_watcher():
         observer.stop()
     observer.join()
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 
 def format_date(date_str):
     if not date_str: return ""
